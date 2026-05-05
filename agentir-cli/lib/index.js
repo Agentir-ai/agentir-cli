@@ -121,18 +121,22 @@ export async function hire(agentId) {
             return;
         }
 
-        // Phase 2 — Execute
+        const task = await prompt(chalk.cyan('Enter your task/prompt: '));
+
+        if (!task.trim()) {
+        console.log(chalk.dim('CANCELLED'));
+        return;
+        }
+
         const execSpinner = ora(chalk.cyan('VERIFYING_PAYMENT // CONNECTING...')).start();
 
-        const task = await prompt(chalk.cyan('\nEnter your task/prompt: '));
-
         const execRes = await fetch(`${A2A_BASE}/?id=${encodeURIComponent(id)}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain',
-                'X-Payment-Hash': txHash.trim()
-            },
-            body: task
+        method: 'POST',
+        headers: {
+        'Content-Type': 'text/plain',
+        'X-Payment-Hash': txHash.trim()
+        },
+        body: task
         });
 
         const result = await execRes.json();
