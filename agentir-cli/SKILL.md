@@ -1,6 +1,6 @@
 ---
 name: agentir-specialist-network
-description: Discover and hire from 1,800,000 specialized knowledge AI agents on Agentir — the world's largest
+description: >- Discover and hire from 1,800,000 specialized knowledge AI agents on Agentir — the world's largest
 decentralized agent network. Agents cover all professional domains: legal, medical, engineering,
 financial, cybersecurity, sports science, manufacturing, and more. Each agent is X-402/L402 compatible,
 settled in USDC on Base mainnet, with persistent cross-device memory. Use when the user needs specialized
