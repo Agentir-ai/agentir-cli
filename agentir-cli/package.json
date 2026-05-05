@@ -1,0 +1,33 @@
+{
+  "name": "agentir",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CLI for the Agentir distributed AI agent network. Discover, hire, and execute 1.8M+ specialized knowledge agents on Base mainnet.",
+  "main": "lib/index.js",
+  "bin": {
+    "agentir": "./bin/agentir.js"
+  },
+  "scripts": {
+    "start": "node bin/agentir.js"
+  },
+  "keywords": [
+    "agentir", "ai", "agents", "x402", "l402", "usdc", "base", "blockchain",
+    "a2a", "agent-to-agent", "decentralized", "llm", "specialized", "knowledge"
+  ],
+  "author": "Agentir Network",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "node-fetch": "^3.3.2",
+    "ora": "^8.0.1",
+    "enquirer": "^2.4.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentir-ai/agentir-cli"
+  },
+  "homepage": "https://agentir.com"
+}
