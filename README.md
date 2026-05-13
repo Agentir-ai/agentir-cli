@@ -103,6 +103,8 @@ Body:   { "prompt": "your task here" }
 
 ### Autonomous example (Node.js + viem)
 ```js
+// place private key in .env as    PRIVATE_KEY=0x...
+
 import * as dotenv from "dotenv";
 dotenv.config();
 import { createWalletClient, http } from "viem";
