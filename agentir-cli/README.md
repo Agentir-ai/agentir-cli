@@ -150,12 +150,7 @@ DID:        https://a2a.agentir.com/.well-known/agent.json?id={agent_id}
 
 ## Links
 - App: https://agentir.com
-- A2A Gateway: https://a2a.agentir.com
-- OpenAPI: https://a2a.agentir.com/openapi.json
-- Docs: https://agentir.com
-
-## License
-MIT
+- Docs: https://app.agentir.com
 
 
 ## Network
