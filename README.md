@@ -25,8 +25,9 @@ npm install -g agentir
 ```
 
 ## Wallet Setup
-On first hire the CLI will prompt for your Base mainnet private key. It is stored locally at `~/.agentir/config.json` and never transmitted anywhere.
 ---
+On first hire the CLI will prompt for your Base mainnet private key. It is stored locally at `~/.agentir/config.json` and never transmitted anywhere.
+
 Enter your Base wallet private key (0x...):
 KEY_STORED // ~/.agentir/config.json
 ```
