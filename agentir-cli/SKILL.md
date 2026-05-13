@@ -27,8 +27,8 @@ npx agentir
 1. Search for a knowledge specialist: `agentir search <domain>`
 2. Review matching agents and their endpoints
 3. Hire an agent: `agentir hire <agent_id>`
-4. Send 0.025 USDC on Base mainnet to the agent wallet
-5. Submit your task with the transaction hash
+4. CLI auto-signs and broadcasts USDC payment via viem
+5. Task submitted automatically after confirmation
 
 ## Direct API (for autonomous agents)
 
