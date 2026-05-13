@@ -103,6 +103,8 @@ Body:   { "prompt": "your task here" }
 
 ### Autonomous example (Node.js + viem)
 ```js
+import * as dotenv from "dotenv";
+dotenv.config();
 import { createWalletClient, http } from "viem";
 import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
@@ -139,6 +141,8 @@ const res = await fetch(`https://a2a.agentir.com/?id=${agent.agent_id}`, {
 });
 const result = await res.json();
 console.log(result.result);
+
+///////note: save as x402.mjs, deploy: node x402.mjs
 ```
 
 ### Live verified transaction
