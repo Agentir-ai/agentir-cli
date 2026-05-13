@@ -1,30 +1,36 @@
-import chalk from 'chalk';
-import fetch from 'node-fetch';
-import ora from 'ora';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import readline from 'readline';
-import { createWalletClient, http } from 'viem';
-import { base } from 'viem/chains';
-import { privateKeyToAccount } from 'viem/accounts';
-import dotenv from 'dotenv';
-dotenv.config();
+'use strict';
+const chalk = require('chalk');
+const fetch = require('node-fetch');
+const ora = require('ora');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const readline = require('readline');
+require('dotenv').config();
+
+// viem — ESM only, use dynamic import
+let createWalletClient, http, base, privateKeyToAccount;
+
+async function loadViem() {
+    if (!createWalletClient) {
+        const viem = await import('viem');
+        const viemChains = await import('viem/chains');
+        const viemAccounts = await import('viem/accounts');
+        createWalletClient = viem.createWalletClient;
+        http = viem.http;
+        base = viemChains.base;
+        privateKeyToAccount = viemAccounts.privateKeyToAccount;
+    }
+}
 
 const A2A_BASE = 'https://a2a.agentir.com';
 const CONFIG_DIR = path.join(os.homedir(), '.agentir');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const HISTORY_FILE = path.join(CONFIG_DIR, 'history.json');
 
-// ─────────────────────────────────────────────
-// CONFIG HELPERS
-// ─────────────────────────────────────────────
-
 function loadConfig() {
     try {
-        if (fs.existsSync(CONFIG_FILE)) {
-            return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-        }
+        if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
     } catch (e) {}
     return {};
 }
@@ -36,9 +42,7 @@ function saveConfig(config) {
 
 function loadHistory() {
     try {
-        if (fs.existsSync(HISTORY_FILE)) {
-            return JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
-        }
+        if (fs.existsSync(HISTORY_FILE)) return JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
     } catch (e) {}
     return [];
 }
@@ -51,16 +55,16 @@ function saveHistory(entry) {
     fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
 }
 
-function prompt(question) {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    return new Promise(resolve => rl.question(question, answer => { rl.close(); resolve(answer); }));
+function promptPaste(question) {
+    return new Promise((resolve) => {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        rl.question(question, (answer) => { rl.close(); resolve(answer.trim()); });
+        if (process.stdin.isTTY) process.stdin.setRawMode(false);
+    });
 }
 
-// ─────────────────────────────────────────────
-// WALLET SETUP
-// ─────────────────────────────────────────────
-
 async function getWalletClient() {
+    await loadViem();
     let privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
@@ -72,11 +76,14 @@ async function getWalletClient() {
         console.log(chalk.yellow('\nNO_WALLET_CONFIGURED // First time setup\n'));
         console.log(chalk.dim('Your private key is stored locally in ~/.agentir/config.json'));
         console.log(chalk.dim('It is never transmitted anywhere.\n'));
-        privateKey = await prompt(chalk.cyan('Enter your Base wallet private key (0x...): '));
+
+        privateKey = await promptPaste(chalk.cyan('Paste your Base wallet private key (0x...): '));
         privateKey = privateKey.trim();
 
-        if (!privateKey.startsWith('0x') || privateKey.length !== 66) {
-            console.log(chalk.red('ERR: Invalid private key format'));
+        if (!privateKey.startsWith('0x')) privateKey = '0x' + privateKey;
+
+        if (privateKey.length !== 66) {
+            console.log(chalk.red(`ERR: Invalid key length (${privateKey.length} chars, expected 66)`));
             process.exit(1);
         }
 
@@ -87,22 +94,12 @@ async function getWalletClient() {
     }
 
     const account = privateKeyToAccount(privateKey);
-    const walletClient = createWalletClient({
-        account,
-        chain: base,
-        transport: http()
-    });
-
+    const walletClient = createWalletClient({ account, chain: base, transport: http() });
     return { walletClient, account };
 }
 
-// ─────────────────────────────────────────────
-// SEARCH
-// ─────────────────────────────────────────────
-
-export async function search(query) {
+async function search(query) {
     const spinner = ora(chalk.cyan(`SCANNING_NETWORK // ${query.toUpperCase()}`)).start();
-
     try {
         const res = await fetch(`${A2A_BASE}/search?q=${encodeURIComponent(query)}`);
         const data = await res.json();
@@ -121,20 +118,17 @@ export async function search(query) {
             const domain = agent.profile?.domain || agent.category || 'GENERAL';
             const expertise = agent.profile?.expertise || agent.capability || 'AI_NODE';
             const cost = agent.access?.cost_per_task || `${agent.task_price || 0.025} USDC`;
-            const endpoint = agent.access?.endpoint || `${A2A_BASE}/?id=${agent.agent_id}`;
 
             console.log(`\n${chalk.white(`[${i + 1}]`)} ${chalk.bold(name)}`);
             console.log(`    ${chalk.dim('DOMAIN:')}    ${chalk.cyan(domain)}`);
             console.log(`    ${chalk.dim('EXPERTISE:')} ${expertise.substring(0, 60)}...`);
             console.log(`    ${chalk.dim('COST:')}      ${chalk.green(cost)}`);
             console.log(`    ${chalk.dim('ID:')}        ${chalk.dim(agent.agent_id)}`);
-            console.log(`    ${chalk.dim('ENDPOINT:')}  ${chalk.dim(endpoint)}`);
         });
 
         console.log(chalk.dim('\n─'.repeat(60)));
         console.log(chalk.dim(`\nTotal fleet: ${(data.total_fleet_size || 1800000).toLocaleString()} agents`));
-        console.log(chalk.cyan('\nTo hire: agentir hire <agent_id>'));
-        console.log(chalk.dim('Full registry: https://agentir.com\n'));
+        console.log(chalk.cyan('\nTo hire: agentir hire <agent_id>\n'));
 
     } catch (err) {
         spinner.stop();
@@ -142,44 +136,28 @@ export async function search(query) {
     }
 }
 
-// ─────────────────────────────────────────────
-// HIRE — TRUE A2A (auto-payment via viem)
-// ─────────────────────────────────────────────
-
-export async function hire(agentId) {
-    const id = agentId.includes('id=')
-        ? agentId.split('id=')[1]
-        : agentId;
-
+async function hire(agentId) {
+    const id = agentId.includes('id=') ? agentId.split('id=')[1] : agentId;
     const spinner = ora(chalk.cyan(`LOCATING_NODE // ${id.substring(0, 20)}...`)).start();
 
     try {
-        // ── Phase 1 — Discovery + x402 challenge ──
-        const probeRes = await fetch(`${A2A_BASE}/?id=${encodeURIComponent(id)}`, {
-            method: 'POST'
-        });
+        const probeRes = await fetch(`${A2A_BASE}/?id=${encodeURIComponent(id)}`, { method: 'POST' });
         spinner.stop();
 
-        if (probeRes.status === 404) {
-            console.log(chalk.red('ERR: NODE_NOT_FOUND'));
-            return;
-        }
+        if (probeRes.status === 404) { console.log(chalk.red('ERR: NODE_NOT_FOUND')); return; }
 
-        // Parse x402 challenge from header
         const challengeB64 = probeRes.headers.get('PAYMENT-REQUIRED');
         const authHeader = probeRes.headers.get('WWW-Authenticate') || '';
 
         let wallet, amount, price;
 
         if (challengeB64) {
-            // x402 — full challenge object
             const challenge = JSON.parse(Buffer.from(challengeB64, 'base64').toString());
             const paymentInfo = challenge.accepts[0];
             wallet = paymentInfo.payTo;
             amount = BigInt(paymentInfo.amount);
             price = (parseInt(paymentInfo.amount) / 1e6).toFixed(3);
         } else if (authHeader) {
-            // L402 — parse WWW-Authenticate header
             wallet = authHeader.match(/invoice="([^"]+)"/)?.[1];
             price = authHeader.match(/price="([^"]+)"/)?.[1] || '0.025';
             amount = BigInt(Math.round(parseFloat(price) * 1e6));
@@ -197,32 +175,19 @@ export async function hire(agentId) {
         console.log(`${chalk.cyan('║')} ${chalk.bold('Wallet:')} ${chalk.dim(wallet?.substring(0, 20))}...`);
         console.log(chalk.cyan('╚══════════════════════════════════════════════╝\n'));
 
-        // Get task from user
-        const task = await prompt(chalk.cyan('Enter your task/prompt: '));
-        if (!task.trim()) {
-            console.log(chalk.dim('CANCELLED'));
-            return;
-        }
-
-        // ── Phase 2 — Auto-payment via viem ──
-        const paySpinner = ora(chalk.cyan('INITIATING_PAYMENT // Base Mainnet...')).start();
-
         const { walletClient, account } = await getWalletClient();
 
+        const task = await promptPaste(chalk.cyan('Enter your task/prompt: '));
+        if (!task.trim()) { console.log(chalk.dim('CANCELLED')); return; }
+
+        const paySpinner = ora(chalk.cyan('INITIATING_PAYMENT // Base Mainnet...')).start();
         console.log(chalk.dim(`\nPaying from: ${account.address.substring(0, 10)}...`));
 
         const txHash = await walletClient.writeContract({
             address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
-            abi: [{
-                name: 'transfer',
-                type: 'function',
-                stateMutability: 'nonpayable',
-                inputs: [
-                    { name: 'to', type: 'address' },
-                    { name: 'amount', type: 'uint256' }
-                ],
-                outputs: [{ name: '', type: 'bool' }]
-            }],
+            abi: [{ name: 'transfer', type: 'function', stateMutability: 'nonpayable',
+                inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
+                outputs: [{ name: '', type: 'bool' }] }],
             functionName: 'transfer',
             args: [wallet, amount],
         });
@@ -234,15 +199,11 @@ export async function hire(agentId) {
         await new Promise(r => setTimeout(r, 5000));
         waitSpinner.stop();
 
-        // ── Phase 3 — Execute ──
         const execSpinner = ora(chalk.cyan('EXECUTING_TASK // VERIFYING_PAYMENT...')).start();
 
         const execRes = await fetch(`${A2A_BASE}/?id=${encodeURIComponent(id)}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Payment-Hash': txHash
-            },
+            headers: { 'Content-Type': 'application/json', 'X-Payment-Hash': txHash },
             body: JSON.stringify({ prompt: task })
         });
 
@@ -250,7 +211,7 @@ export async function hire(agentId) {
         execSpinner.stop();
 
         if (execRes.status === 403) {
-            console.log(chalk.red(`ERR: ${result.error || result || 'VERIFICATION_FAILED'}`));
+            console.log(chalk.red(`ERR: ${result.error || 'VERIFICATION_FAILED'}`));
             return;
         }
 
@@ -258,7 +219,6 @@ export async function hire(agentId) {
         console.log(chalk.white(`\n${result.result}\n`));
         console.log(chalk.cyan('╚══════════════════════════════════════════════╝'));
 
-        // Save to history
         saveHistory({
             agent_id: id,
             agent_name: agentName,
@@ -278,17 +238,14 @@ export async function hire(agentId) {
     }
 }
 
-// ─────────────────────────────────────────────
-// STATUS
-// ─────────────────────────────────────────────
-
-export async function status() {
+async function status() {
     const history = loadHistory();
     const config = loadConfig();
     let walletAddress = 'NOT_CONFIGURED';
 
     if (config.privateKey || process.env.PRIVATE_KEY) {
         try {
+            await loadViem();
             const key = config.privateKey || process.env.PRIVATE_KEY;
             const account = privateKeyToAccount(key);
             walletAddress = account.address;
@@ -303,23 +260,13 @@ export async function status() {
     console.log(`${chalk.cyan('║')} ${chalk.bold('Tasks:')}    ${history.length} in local history`);
     console.log(`${chalk.cyan('║')} ${chalk.bold('Config:')}   ${CONFIG_DIR}`);
     console.log(chalk.cyan('╚══════════════════════════════════════════════╝\n'));
-
     console.log(chalk.dim('Gateway:    https://a2a.agentir.com'));
-    console.log(chalk.dim('Discovery:  https://agentir.com'));
-    console.log(chalk.dim('Docs:       https://agentir.com\n'));
+    console.log(chalk.dim('Discovery:  https://agentir.com\n'));
 }
 
-// ─────────────────────────────────────────────
-// HISTORY
-// ─────────────────────────────────────────────
-
-export async function taskHistory() {
+async function taskHistory() {
     const tasks = loadHistory();
-
-    if (tasks.length === 0) {
-        console.log(chalk.yellow('NO_HISTORY // No tasks recorded yet'));
-        return;
-    }
+    if (tasks.length === 0) { console.log(chalk.yellow('NO_HISTORY // No tasks recorded yet')); return; }
 
     console.log(chalk.cyan(`\nTASK_HISTORY // ${tasks.length} RECORDS\n`));
     console.log(chalk.dim('─'.repeat(60)));
@@ -332,19 +279,15 @@ export async function taskHistory() {
         console.log(`    ${chalk.dim('Return:')}  ${chalk.cyan(s.return_url)}`);
     });
 
-    console.log(chalk.dim('\n─'.repeat(60)));
     console.log(chalk.dim(`\nHistory stored at: ${HISTORY_FILE}\n`));
 }
 
-// ─────────────────────────────────────────────
-// BALANCE
-// ─────────────────────────────────────────────
-
-export async function balance() {
+async function balance() {
     const config = loadConfig();
     const key = config.privateKey || process.env.PRIVATE_KEY;
 
     if (key) {
+        await loadViem();
         const account = privateKeyToAccount(key);
         console.log(chalk.cyan('\nBALANCE_CHECK // Base Mainnet USDC\n'));
         console.log(chalk.dim(`Wallet: ${account.address}`));
@@ -357,6 +300,8 @@ export async function balance() {
     console.log(chalk.dim('Get USDC on Base:'));
     console.log(chalk.white('  Coinbase:  https://coinbase.com'));
     console.log(chalk.white('  Uniswap:   https://app.uniswap.org'));
-    console.log(chalk.dim('\nUSdc Contract: 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'));
+    console.log(chalk.dim('\nUSDC Contract: 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'));
     console.log(chalk.dim('Network: Base Mainnet (Chain ID: 8453)\n'));
 }
+
+module.exports = { search, hire, status, taskHistory, balance };
