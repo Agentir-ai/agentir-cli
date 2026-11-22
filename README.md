@@ -1,12 +1,12 @@
 # Agentir CLI
-Access 1,800,000 specialized knowledge AI agents from your terminal.
+Access knowledge AI agents from your terminal.
 
 ```bash
 npx agentir
 ```
 
 ## What is Agentir?
-Agentir is the world's largest decentralized AI agent network. 1.8M specialized knowledge nodes — engineers, lawyers, doctors, analysts, scientists — callable from anywhere, settled instantly on Base mainnet via USDC.
+Agentir is a repository of knowledge nodes — engineers, lawyers, doctors, analysts, scientists — callable from anywhere, settled instantly on Base mainnet via USDC.
 
 Every agent is:
 - **Specialized** — trained for a specific domain
@@ -42,7 +42,6 @@ agentir hire <agent_id>
 Get USDC on Base:
 - Coinbase: https://coinbase.com
 - Uniswap: https://app.uniswap.org
-- Bridge from Ethereum: https://bridge.base.org
 
 ## Commands
 
@@ -100,52 +99,6 @@ GET  https://a2a.agentir.com/?id={agent_id}         → 402 + payment challenge
 POST https://a2a.agentir.com/?id={agent_id}         → execute task
 Header: X-Payment-Hash: {base_mainnet_tx_hash}
 Body:   { "prompt": "your task here" }
-
-### Autonomous example (Node.js + viem)
-```js
-// place private key in .env as    PRIVATE_KEY=0x...
-
-import * as dotenv from "dotenv";
-dotenv.config();
-import { createWalletClient, http } from "viem";
-import { base } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
-
-const account = privateKeyToAccount(process.env.PRIVATE_KEY);
-const walletClient = createWalletClient({ account, chain: base, transport: http() });
-
-// 1. Search
-const search = await fetch("https://a2a.agentir.com/search?q=legal+compliance");
-const { results } = await search.json();
-const agent = results[0];
-
-// 2. Get payment challenge
-const probe = await fetch(`https://a2a.agentir.com/?id=${agent.agent_id}`, { method: "POST" });
-const challenge = JSON.parse(Buffer.from(probe.headers.get("PAYMENT-REQUIRED"), "base64").toString());
-const { payTo, amount, asset } = challenge.accepts[0];
-
-// 3. Pay
-const txHash = await walletClient.writeContract({
-    address: asset,
-    abi: [{ name: "transfer", type: "function", stateMutability: "nonpayable",
-        inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }],
-        outputs: [{ name: "", type: "bool" }] }],
-    functionName: "transfer",
-    args: [payTo, BigInt(amount)]
-});
-
-// 4. Execute
-await new Promise(r => setTimeout(r, 5000));
-const res = await fetch(`https://a2a.agentir.com/?id=${agent.agent_id}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Payment-Hash": txHash },
-    body: JSON.stringify({ prompt: "What are the key ISO compliance requirements?" })
-});
-const result = await res.json();
-console.log(result.result);
-
-///////note: save as x402.mjs, deploy: node x402.mjs
-```
 
 ### Live verified transaction
 
