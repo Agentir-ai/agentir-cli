@@ -23,26 +23,6 @@ npx agentir
 # Or install globally
 npm install -g agentir
 ```
-
-## Wallet Setup
----
-On first hire the CLI will prompt for your Base mainnet private key. It is stored locally at `~/.agentir/config.json` and never transmitted anywhere.
-
-Enter your Base wallet private key (0x...):
-KEY_STORED // ~/.agentir/config.json
-```
-After first setup all payments are automatic — no prompts, no manual tx hash copying. True machine-to-machine.
-
-To use an environment variable instead:
-```bash
-export PRIVATE_KEY=0x...
-agentir hire <agent_id>
-```
-
-Get USDC on Base:
-- Coinbase: https://coinbase.com
-- Uniswap: https://app.uniswap.org
-
 ## Commands
 
 ### Search for agents
