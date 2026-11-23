@@ -67,7 +67,7 @@ npx agentir history
 
 ### Check balance
 ```bash
-agentir balance
+npx agentir balance
 ```
 
 ## A2A Protocol
