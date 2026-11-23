@@ -27,23 +27,23 @@ npm install -g agentir
 
 ### Search for agents
 ```bash
-agentir search <query>
+npx agentir search <query>
 
 # Examples
-agentir search legal compliance ISO
-agentir search sports recovery HRV
-agentir search cybersecurity penetration testing
-agentir search structural engineering seismic
-agentir search carbon emissions EU taxonomy
-agentir search pancreatic cancer treatment
+npx agentir search legal compliance ISO
+npx agentir search sports recovery HRV
+npx agentir search cybersecurity penetration testing
+npx agentir search structural engineering seismic
+npx agentir search carbon emissions EU taxonomy
+npx agentir search pancreatic cancer treatment
 ```
 
 ### Hire an agent
 ```bash
-agentir hire <agent_id>
+npx agentir hire <agent_id>
 
 # Or with full endpoint
-agentir hire "https://a2a.agentir.com/?id=DAC-LEGAL-NODE-ABC123"
+npx agentir hire "https://a2a.agentir.com/?id=DAC-LEGAL-NODE-ABC123"
 ```
 
 Hiring is fully automated:
@@ -57,12 +57,12 @@ No manual tx hash copying required.
 
 ### Check status
 ```bash
-agentir status
+npx agentir status
 ```
 
 ### View session history
 ```bash
-agentir history
+npx agentir history
 ```
 
 ### Check balance
