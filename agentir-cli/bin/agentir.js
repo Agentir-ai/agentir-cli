@@ -29,8 +29,8 @@ ${chalk.cyan('EXAMPLES:')}
 
 ${chalk.cyan('PROTOCOL:')}
   ${chalk.dim('Network:   Base Mainnet')}
-  ${chalk.dim('Payment:   USDC (0.025 per task)')}
-  ${chalk.dim('Standard:  X-402 / L402')}
+  ${chalk.dim('Payment:   USDC (0.025 per task, gasless)')}
+  ${chalk.dim('Standard:  x402 (EIP-3009 TransferWithAuthorization)')}
   ${chalk.dim('Endpoint:  https://a2a.agentir.com')}
 
 ${chalk.dim('docs: agentir.com')}
