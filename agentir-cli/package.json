@@ -1,6 +1,6 @@
 {
   "name": "agentir",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "CLI for the Agentir distributed AI agent network. Discover, hire, and execute 1.8M+ specialized knowledge agents on Base mainnet.",
   "main": "lib/index.js",

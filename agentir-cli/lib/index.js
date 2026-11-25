@@ -6,19 +6,19 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const readline = require('readline');
+const { randomBytes } = require('crypto');
 require('dotenv').config();
 
-// viem — ESM only, use dynamic import
-let createWalletClient, http, base, privateKeyToAccount;
+// viem — ESM only, use dynamic import.
+// Standard x402 is a gasless signed authorization, so we only need the
+// account (to sign typed data) and getAddress (to checksum-normalize).
+let privateKeyToAccount, getAddress;
 
 async function loadViem() {
-    if (!createWalletClient) {
+    if (!privateKeyToAccount) {
         const viem = await import('viem');
-        const viemChains = await import('viem/chains');
         const viemAccounts = await import('viem/accounts');
-        createWalletClient = viem.createWalletClient;
-        http = viem.http;
-        base = viemChains.base;
+        getAddress = viem.getAddress;
         privateKeyToAccount = viemAccounts.privateKeyToAccount;
     }
 }
@@ -74,8 +74,8 @@ async function getWalletClient() {
 
     if (!privateKey) {
         console.log(chalk.yellow('\nNO_WALLET_CONFIGURED // First time setup\n'));
-        console.log(chalk.dim('Your private key is stored locally in ~/.agentir/config.json'));
-        console.log(chalk.dim('It is never transmitted anywhere.\n'));
+        console.log(chalk.dim('Payments are gasless: your key signs a USDC authorization — it is never'));
+        console.log(chalk.dim('broadcast, needs no ETH, and is stored only in ~/.agentir/config.json.\n'));
 
         privateKey = await promptPaste(chalk.cyan('Paste your Base wallet private key (0x...): '));
         privateKey = privateKey.trim();
@@ -94,8 +94,7 @@ async function getWalletClient() {
     }
 
     const account = privateKeyToAccount(privateKey);
-    const walletClient = createWalletClient({ account, chain: base, transport: http() });
-    return { walletClient, account };
+    return { account };
 }
 
 async function search(query) {
@@ -147,24 +146,24 @@ async function hire(agentId) {
         if (probeRes.status === 404) { console.log(chalk.red('ERR: NODE_NOT_FOUND')); return; }
 
         const challengeB64 = probeRes.headers.get('PAYMENT-REQUIRED');
-        const authHeader = probeRes.headers.get('WWW-Authenticate') || '';
-
-        let wallet, amount, price;
-
-        if (challengeB64) {
-            const challenge = JSON.parse(Buffer.from(challengeB64, 'base64').toString());
-            const paymentInfo = challenge.accepts[0];
-            wallet = paymentInfo.payTo;
-            amount = BigInt(paymentInfo.amount);
-            price = (parseInt(paymentInfo.amount) / 1e6).toFixed(3);
-        } else if (authHeader) {
-            wallet = authHeader.match(/invoice="([^"]+)"/)?.[1];
-            price = authHeader.match(/price="([^"]+)"/)?.[1] || '0.025';
-            amount = BigInt(Math.round(parseFloat(price) * 1e6));
-        } else {
-            console.log(chalk.red('ERR: NO_PAYMENT_CHALLENGE'));
+        if (!challengeB64) {
+            console.log(chalk.red('ERR: NO_PAYMENT_CHALLENGE // expected a 402 x402 challenge'));
             return;
         }
+
+        let paymentInfo;
+        try {
+            const challenge = JSON.parse(Buffer.from(challengeB64, 'base64').toString());
+            paymentInfo = challenge.accepts?.[0];
+        } catch (e) {}
+        if (!paymentInfo) {
+            console.log(chalk.red('ERR: MALFORMED_CHALLENGE'));
+            return;
+        }
+
+        const wallet = paymentInfo.payTo;
+        const amount = BigInt(paymentInfo.amount);
+        const price  = (Number(paymentInfo.amount) / 1e6).toFixed(3);
 
         const body = await probeRes.json().catch(() => ({}));
         const agentName = body.agent_name || body.agent_id || id;
@@ -175,54 +174,98 @@ async function hire(agentId) {
         console.log(`${chalk.cyan('║')} ${chalk.bold('Wallet:')} ${chalk.dim(wallet?.substring(0, 20))}...`);
         console.log(chalk.cyan('╚══════════════════════════════════════════════╝\n'));
 
-        const { walletClient, account } = await getWalletClient();
+        const { account } = await getWalletClient();
 
         const task = await promptPaste(chalk.cyan('Enter your task/prompt: '));
         if (!task.trim()) { console.log(chalk.dim('CANCELLED')); return; }
 
-        const paySpinner = ora(chalk.cyan('INITIATING_PAYMENT // Base Mainnet...')).start();
-        console.log(chalk.dim(`\nPaying from: ${account.address.substring(0, 10)}...`));
+        // ── standard x402: sign a gasless EIP-3009 TransferWithAuthorization ──
+        // No broadcast, no ETH. The facilitator verifies + settles the signed
+        // authorization server-side; we just send it in PAYMENT-SIGNATURE.
+        const paySpinner = ora(chalk.cyan('SIGNING_PAYMENT // gasless USDC authorization...')).start();
 
-        const txHash = await walletClient.writeContract({
-            address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
-            abi: [{ name: 'transfer', type: 'function', stateMutability: 'nonpayable',
-                inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
-                outputs: [{ name: '', type: 'bool' }] }],
-            functionName: 'transfer',
-            args: [wallet, amount],
+        const chainId = parseInt(String(paymentInfo.network || 'eip155:8453').split(':')[1], 10) || 8453;
+        const asset   = paymentInfo.asset || '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+        const now     = Math.floor(Date.now() / 1000);
+        // lowercasing first makes getAddress re-derive a valid checksum
+        const norm = (a) => getAddress(String(a).toLowerCase());
+
+        const authorization = {
+            from: account.address,
+            to: norm(wallet),
+            value: String(amount),
+            validAfter: '0',
+            validBefore: String(now + 600),   // 10-minute window
+            nonce: '0x' + randomBytes(32).toString('hex')
+        };
+
+        const signature = await account.signTypedData({
+            domain: {
+                name: paymentInfo.extra?.name || 'USD Coin',
+                version: paymentInfo.extra?.version || '2',
+                chainId,
+                verifyingContract: norm(asset)
+            },
+            types: {
+                TransferWithAuthorization: [
+                    { name: 'from',        type: 'address' },
+                    { name: 'to',          type: 'address' },
+                    { name: 'value',       type: 'uint256' },
+                    { name: 'validAfter',  type: 'uint256' },
+                    { name: 'validBefore', type: 'uint256' },
+                    { name: 'nonce',       type: 'bytes32' }
+                ]
+            },
+            primaryType: 'TransferWithAuthorization',
+            message: {
+                from: authorization.from,
+                to: authorization.to,
+                value: BigInt(authorization.value),
+                validAfter: BigInt(authorization.validAfter),
+                validBefore: BigInt(authorization.validBefore),
+                nonce: authorization.nonce
+            }
         });
 
+        const paymentPayload = {
+            x402Version: 2,
+            accepted: paymentInfo,
+            payload: { signature, authorization }
+        };
+        const paymentHeader = Buffer.from(JSON.stringify(paymentPayload)).toString('base64');
         paySpinner.stop();
-        console.log(chalk.green(`TX_BROADCAST // ${txHash.substring(0, 20)}...`));
+        console.log(chalk.dim(`\nPaying from: ${account.address.substring(0, 10)}... (gasless — no ETH needed)`));
 
-        const waitSpinner = ora(chalk.cyan('AWAITING_CONFIRMATION // 5 seconds...')).start();
-        await new Promise(r => setTimeout(r, 5000));
-        waitSpinner.stop();
-
-        const execSpinner = ora(chalk.cyan('EXECUTING_TASK // VERIFYING_PAYMENT...')).start();
-
+        const execSpinner = ora(chalk.cyan('EXECUTING_TASK // SETTLING_PAYMENT...')).start();
         const execRes = await fetch(`${A2A_BASE}/?id=${encodeURIComponent(id)}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Payment-Hash': txHash },
+            headers: { 'Content-Type': 'application/json', 'PAYMENT-SIGNATURE': paymentHeader },
             body: JSON.stringify({ prompt: task })
         });
-
-        const result = await execRes.json();
+        const result = await execRes.json().catch(() => ({}));
         execSpinner.stop();
 
-        if (execRes.status === 403) {
-            console.log(chalk.red(`ERR: ${result.error || 'VERIFICATION_FAILED'}`));
+        if (execRes.status !== 200) {
+            const reason = result.reason ? ` // ${result.reason}` : '';
+            console.log(chalk.red(`ERR: ${result.error || 'PAYMENT_FAILED'}${reason}`));
             return;
         }
 
+        // settlement details (tx hash) come back in the PAYMENT-RESPONSE header
+        let settleTx = '';
+        const payResp = execRes.headers.get('PAYMENT-RESPONSE');
+        if (payResp) {
+            try { settleTx = JSON.parse(Buffer.from(payResp, 'base64').toString()).transaction || ''; } catch (e) {}
+        }
+
         console.log(chalk.cyan('\n╔══ AGENT_RESPONSE ════════════════════════════╗'));
-        console.log(chalk.white(`\n${result.result}\n`));
+        console.log(chalk.white(`\n${result.result || result.reply || '(no content)'}\n`));
         console.log(chalk.cyan('╚══════════════════════════════════════════════╝'));
 
         saveHistory({
             agent_id: id,
             agent_name: agentName,
-            tx_hash: txHash,
+            tx_hash: settleTx,
             timestamp: new Date().toISOString(),
             task: task.substring(0, 100),
             receipt: result.receipt,
@@ -230,7 +273,10 @@ async function hire(agentId) {
         });
 
         console.log(chalk.green('\nTASK_COMPLETE // RECEIPT_SAVED'));
-        console.log(chalk.dim(`TX: ${txHash}`));
+        if (settleTx) {
+            console.log(chalk.dim(`Settlement TX: ${settleTx}`));
+            console.log(chalk.dim(`Explorer:      https://basescan.org/tx/${settleTx}`));
+        }
         console.log(chalk.cyan(`RETURN_TO_NODE: https://agentir.com/${id}\n`));
 
     } catch (err) {
