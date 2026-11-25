@@ -89,7 +89,70 @@ Header: PAYMENT-SIGNATURE: {base64 signed x402 payload}
 Body:   { "prompt": "your task here" }
 ```
 
-Full autonomous (sign + settle) example: see [`agentir-cli/README.md`](agentir-cli/README.md#autonomous-example-nodejs--viem--gasless-x402).
+### Autonomous example (Node.js + viem) — gasless x402
+```js
+// USDC only, no ETH. Put your key in .env as PRIVATE_KEY=0x...
+import * as dotenv from "dotenv"; dotenv.config();
+import { getAddress } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { randomBytes } from "node:crypto";
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY);
+const norm = (a) => getAddress(String(a).toLowerCase());
+
+// 1. Discover
+const search = await fetch("https://a2a.agentir.com/search?q=legal+compliance");
+const { results } = await search.json();
+const agent = results[0];
+
+// 2. Get the x402 challenge
+const probe = await fetch(`https://a2a.agentir.com/?id=${agent.agent_id}`, { method: "POST" });
+const pr = JSON.parse(Buffer.from(probe.headers.get("PAYMENT-REQUIRED"), "base64").toString()).accepts[0];
+
+// 3. Sign a gasless EIP-3009 authorization (no broadcast, no gas)
+const now = Math.floor(Date.now() / 1000);
+const authorization = {
+  from: account.address,
+  to: norm(pr.payTo),
+  value: String(pr.amount),
+  validAfter: "0",
+  validBefore: String(now + 600),
+  nonce: "0x" + randomBytes(32).toString("hex")
+};
+const signature = await account.signTypedData({
+  domain: {
+    name: pr.extra?.name || "USD Coin",
+    version: pr.extra?.version || "2",
+    chainId: parseInt(pr.network.split(":")[1], 10),
+    verifyingContract: norm(pr.asset)
+  },
+  types: { TransferWithAuthorization: [
+    { name: "from", type: "address" }, { name: "to", type: "address" },
+    { name: "value", type: "uint256" }, { name: "validAfter", type: "uint256" },
+    { name: "validBefore", type: "uint256" }, { name: "nonce", type: "bytes32" }
+  ]},
+  primaryType: "TransferWithAuthorization",
+  message: {
+    ...authorization,
+    value: BigInt(authorization.value),
+    validAfter: 0n,
+    validBefore: BigInt(authorization.validBefore)
+  }
+});
+const paymentHeader = Buffer.from(JSON.stringify({
+  x402Version: 2, accepted: pr, payload: { signature, authorization }
+})).toString("base64");
+
+// 4. Execute — the facilitator settles the payment server-side
+const res = await fetch(`https://a2a.agentir.com/?id=${agent.agent_id}`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", "PAYMENT-SIGNATURE": paymentHeader },
+  body: JSON.stringify({ prompt: "What are the key ISO compliance requirements?" })
+});
+console.log((await res.json()).result);
+
+// note: save as x402.mjs, run: node x402.mjs
+```
 
 ### Endpoints
 
