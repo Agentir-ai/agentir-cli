@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-const chalk = require('chalk');
-const { search, hire, status, taskHistory, balance } = require('../lib/index.js');
+import chalk from 'chalk';
+import { search, hire, status, taskHistory, balance } from '../lib/index.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
