@@ -1,11 +1,11 @@
 {
-  "name": "agentir",
-  "version": "1.1.0",
+  "name": "agentir-cli",
+  "version": "1.1.1",
   "type": "module",
   "description": "CLI for the Agentir distributed AI agent network. Discover, hire, and execute 1.8M+ specialized knowledge agents on Base mainnet.",
   "main": "lib/index.js",
   "bin": {
-    "agentir": "./bin/agentir.js"
+    "agentir": "bin/agentir.js"
   },
   "scripts": {
     "start": "node bin/agentir.js"
@@ -16,6 +16,7 @@
   ],
   "author": "Agentir Network",
   "license": "MIT",
+  "files": ["lib", "bin", "README.md", "SKILL.md"],
   "dependencies": {
     "viem": "^2.0.0",
     "dotenv": "^16.0.0",

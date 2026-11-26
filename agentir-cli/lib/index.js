@@ -1,27 +1,16 @@
-'use strict';
-const chalk = require('chalk');
-const fetch = require('node-fetch');
-const ora = require('ora');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const readline = require('readline');
-const { randomBytes } = require('crypto');
-require('dotenv').config();
+import chalk from 'chalk';
+import fetch from 'node-fetch';
+import ora from 'ora';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import readline from 'readline';
+import { randomBytes } from 'node:crypto';
+import * as dotenv from 'dotenv';
+import { getAddress } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
-// viem — ESM only, use dynamic import.
-// Standard x402 is a gasless signed authorization, so we only need the
-// account (to sign typed data) and getAddress (to checksum-normalize).
-let privateKeyToAccount, getAddress;
-
-async function loadViem() {
-    if (!privateKeyToAccount) {
-        const viem = await import('viem');
-        const viemAccounts = await import('viem/accounts');
-        getAddress = viem.getAddress;
-        privateKeyToAccount = viemAccounts.privateKeyToAccount;
-    }
-}
+dotenv.config();
 
 const A2A_BASE = 'https://a2a.agentir.com';
 const CONFIG_DIR = path.join(os.homedir(), '.agentir');
@@ -64,7 +53,6 @@ function promptPaste(question) {
 }
 
 async function getWalletClient() {
-    await loadViem();
     let privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
@@ -291,7 +279,6 @@ async function status() {
 
     if (config.privateKey || process.env.PRIVATE_KEY) {
         try {
-            await loadViem();
             const key = config.privateKey || process.env.PRIVATE_KEY;
             const account = privateKeyToAccount(key);
             walletAddress = account.address;
@@ -333,7 +320,6 @@ async function balance() {
     const key = config.privateKey || process.env.PRIVATE_KEY;
 
     if (key) {
-        await loadViem();
         const account = privateKeyToAccount(key);
         console.log(chalk.cyan('\nBALANCE_CHECK // Base Mainnet USDC\n'));
         console.log(chalk.dim(`Wallet: ${account.address}`));
@@ -350,4 +336,4 @@ async function balance() {
     console.log(chalk.dim('Network: Base Mainnet (Chain ID: 8453)\n'));
 }
 
-module.exports = { search, hire, status, taskHistory, balance };
+export { search, hire, status, taskHistory, balance };
