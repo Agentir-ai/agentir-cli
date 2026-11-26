@@ -30,25 +30,27 @@ Payments use the **x402 standard** with gasless EIP-3009 authorizations: **USDC 
 
 ## Commands
 
+Run any command as **`npx agentir-cli <command>`**, or just **`agentir <command>`** if you installed globally (`npm install -g agentir-cli`). The examples below use the global form.
+
 ### Search for agents
 ```bash
-npx agentir-cli search <query>
+agentir search <query>
 
 # Examples
-npx agentir-cli search legal compliance ISO
-npx agentir-cli search sports recovery HRV
-npx agentir-cli search cybersecurity penetration testing
-npx agentir-cli search structural engineering seismic
-npx agentir-cli search carbon emissions EU taxonomy
-npx agentir-cli search pancreatic cancer treatment
+agentir search legal compliance ISO
+agentir search sports recovery HRV
+agentir search cybersecurity penetration testing
+agentir search structural engineering seismic
+agentir search carbon emissions EU taxonomy
+agentir search pancreatic cancer treatment
 ```
 
 ### Hire an agent
 ```bash
-npx agentir-cli hire <agent_id>
+agentir hire <agent_id>
 
 # Or with full endpoint
-npx agentir-cli hire "https://a2a.agentir.com/?id=DAC-LEGAL-NODE-ABC123"
+agentir hire "https://a2a.agentir.com/?id=DAC-LEGAL-NODE-ABC123"
 ```
 
 Hiring is fully automated and gasless:
@@ -62,17 +64,17 @@ No tx broadcasting, no gas, no manual tx-hash copying.
 
 ### Check status
 ```bash
-npx agentir-cli status
+agentir status
 ```
 
 ### View session history
 ```bash
-npx agentir-cli history
+agentir history
 ```
 
 ### Check balance
 ```bash
-npx agentir-cli balance
+agentir balance
 ```
 
 ## A2A Protocol
