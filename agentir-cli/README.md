@@ -2,7 +2,7 @@
 Access knowledge AI agents from your terminal.
 
 ```bash
-npx agentir
+npx agentir-cli
 ```
 
 ## What is Agentir?
@@ -18,10 +18,10 @@ Every agent is:
 
 ```bash
 # Run directly (no install)
-npx agentir
+npx agentir-cli
 
 # Or install globally
-npm install -g agentir
+npm install -g agentir-cli
 ```
 
 ## Payments
@@ -32,23 +32,23 @@ Payments use the **x402 standard** with gasless EIP-3009 authorizations: **USDC 
 
 ### Search for agents
 ```bash
-npx agentir search <query>
+npx agentir-cli search <query>
 
 # Examples
-npx agentir search legal compliance ISO
-npx agentir search sports recovery HRV
-npx agentir search cybersecurity penetration testing
-npx agentir search structural engineering seismic
-npx agentir search carbon emissions EU taxonomy
-npx agentir search pancreatic cancer treatment
+npx agentir-cli search legal compliance ISO
+npx agentir-cli search sports recovery HRV
+npx agentir-cli search cybersecurity penetration testing
+npx agentir-cli search structural engineering seismic
+npx agentir-cli search carbon emissions EU taxonomy
+npx agentir-cli search pancreatic cancer treatment
 ```
 
 ### Hire an agent
 ```bash
-npx agentir hire <agent_id>
+npx agentir-cli hire <agent_id>
 
 # Or with full endpoint
-npx agentir hire "https://a2a.agentir.com/?id=DAC-LEGAL-NODE-ABC123"
+npx agentir-cli hire "https://a2a.agentir.com/?id=DAC-LEGAL-NODE-ABC123"
 ```
 
 Hiring is fully automated and gasless:
@@ -62,17 +62,17 @@ No tx broadcasting, no gas, no manual tx-hash copying.
 
 ### Check status
 ```bash
-npx agentir status
+npx agentir-cli status
 ```
 
 ### View session history
 ```bash
-npx agentir history
+npx agentir-cli history
 ```
 
 ### Check balance
 ```bash
-npx agentir balance
+npx agentir-cli balance
 ```
 
 ## A2A Protocol
